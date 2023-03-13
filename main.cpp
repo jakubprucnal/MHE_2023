@@ -77,6 +77,35 @@ solution_t brute_force(solution_t start_point) {
     return best_solution;
 }
 
+solution_t best_neighbour(solution_t current_point) {
+    using namespace std;
+    vector<solution_t> neighbours;
+    solution_t best_neigh = current_point;
+    for (int i = 0; i < current_point.size(); i++) {
+        solution_t neighbour = current_point;
+        neighbour[i] = !neighbour[i];
+        neighbours.push_back(neighbour);
+        if (neighbour.goal() <= best_neigh.goal()) {
+            best_neigh = neighbour;
+        }
+    }
+//    for (int i=0; i<neighbours.size(); i++){
+//        cout << neighbours[i] << " -- " << neighbours[i].goal() << endl;
+//    }
+    return best_neigh;
+}
+
+solution_t hillclimb(solution_t solution) {
+    for (int i = 0; i < 254; i++) {
+        auto new_solution = best_neighbour(solution);
+        if (new_solution.goal() <= solution.goal()) {
+            solution = new_solution;
+            std::cout << i << " " << solution << "  " << solution.goal() << std::endl;
+        }
+    }
+    return solution;
+}
+
 solution_t random_hillclimb(solution_t solution) {
     for (int i = 0; i < 254; i++) {
         auto new_solution = random_modify(solution);
@@ -97,7 +126,8 @@ int main() {
     solution_t solution(make_shared<problem_t>(part_problem));
     for (int i = 0; i < part_problem.size(); i++) solution.push_back(true);
 //    solution = brute_force(solution);
-    solution = random_hillclimb(solution);
+//    solution = random_hillclimb(solution);
+    solution = hillclimb(solution);
     cout << solution << " Result  " << solution.goal() << std::endl;
 
 }
