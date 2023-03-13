@@ -8,24 +8,25 @@
 
 using problem_t = std::vector<int>;
 
-int subset_sum (std::vector<int> subset){
-    int sum = 0;
-    for (int i = 0; i < subset.size(); i++) {
-        sum += subset[i];
-    }
-    return sum;
-}
-
-class solution_t : public std::array<std::vector<int>, 2> {
+class solution_t : public std::vector<bool> {
 public:
     std::shared_ptr<problem_t> problem;
 
     solution_t(std::shared_ptr<problem_t> problem_) : problem(problem_) {}
 
     int goal() {
-        auto &t = *this;
-        int subset1_sum = subset_sum(t[0]), subset2_sum = subset_sum(t[1]);
-        return fabs(subset1_sum - subset2_sum);
+        int sums_difference = 0;
+        for (int i = 0; i < size(); i++) {
+            auto &p = *problem;
+            auto &t = *this;
+            if (t[i]){
+                sums_difference += p[i];
+            }
+            else {
+                sums_difference -= p[i];
+            }
+        }
+        return fabs(sums_difference);
     }
 };
 
@@ -38,9 +39,9 @@ std::ostream &operator<<(std::ostream &o, const problem_t v) {
     return o;
 }
 std::ostream &operator<<(std::ostream &o, const solution_t v) {
-    o << "[ ";
+    o << "} ";
     for (auto e: v) o << e << " ";
-    o << "]";
+    o << "}";
     return o;
 }
 
@@ -48,6 +49,7 @@ std::ostream &operator<<(std::ostream &o, const solution_t v) {
 //solution_t brute_force(solution_t start_point) {
 //    auto solution = start_point;
 //    solution = start_point
+//
 //    return best_solution;
 //}
 
@@ -60,8 +62,9 @@ int main() {
     };
     cout << part_problem << std::endl;
     solution_t solution(make_shared<problem_t>(part_problem));
-    solution[0] = {1};
-    solution[1] = {2};
-    cout << solution << "Start:  " << solution.goal() << std::endl;
+    for (int i = 0; i < part_problem.size(); i++) solution.push_back(true);
+    solution[3] = false;
+    solution[4] = false;
+    cout << solution << "Result  " << solution.goal() << std::endl;
 
 }
