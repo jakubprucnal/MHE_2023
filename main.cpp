@@ -39,32 +39,47 @@ std::ostream &operator<<(std::ostream &o, const problem_t v) {
     return o;
 }
 std::ostream &operator<<(std::ostream &o, const solution_t v) {
-    o << "} ";
+    o << "{ ";
     for (auto e: v) o << e << " ";
     o << "}";
     return o;
 }
 
 
-//solution_t brute_force(solution_t start_point) {
-//    auto solution = start_point;
-//    solution = start_point
-//
-//    return best_solution;
-//}
+solution_t brute_force(solution_t start_point) {
+    auto solution = start_point;
+    for (int i = 0; i < solution.size(); i++) {
+        solution[i] = false;
+    }
+    auto best_solution = solution;
+    int i = 0;
+    std::cout << i << " Last: " << solution << std::endl;
+    for (int j = 0; j < solution.size()/2; j++){
+        solution[0] = !solution[0];
+        do {
+            if (solution.goal() <= best_solution.goal()) {
+                best_solution = solution;
+                std::cout << (i++) << " " << solution << "  " << solution.goal() << " *** " << best_solution << "  "
+                          << best_solution.goal() << std::endl;
+            }
+        } while (std::next_permutation(solution.begin(), solution.end()));
+        std::cout << i << " Last j: " << j << " "<< solution << std::endl;
+    }
+
+    return best_solution;
+}
 
 
 
 int main() {
     using namespace std;
     problem_t part_problem = {
-            1, 3, 5, 7, 9, 5, 1, 1
+            1, 3, 5, 7, 9, 5, 1, 1, 1
     };
     cout << part_problem << std::endl;
     solution_t solution(make_shared<problem_t>(part_problem));
     for (int i = 0; i < part_problem.size(); i++) solution.push_back(true);
-    solution[3] = false;
-    solution[4] = false;
+    solution = brute_force(solution);
     cout << solution << "Result  " << solution.goal() << std::endl;
 
 }
