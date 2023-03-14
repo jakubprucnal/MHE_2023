@@ -1,5 +1,4 @@
 #include <iostream>
-#include <array>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -8,7 +7,6 @@
 #include <random>
 #include <list>
 #include <set>
-#include <algorithm>
 
 using problem_t = std::vector<int>;
 
@@ -126,7 +124,7 @@ solution_t random_hillclimb(solution_t solution) {
     return solution;
 }
 
-solution_t tabu_function(solution_t solution) {
+solution_t tabu_function(solution_t solution, int tabu_size) {
     using namespace std;
     set<solution_t> tabu_set;
     list<solution_t> tabu_list;
@@ -137,6 +135,13 @@ solution_t tabu_function(solution_t solution) {
     auto add_to_taboo = [&](auto e) {
         tabu_set.insert(e);
         tabu_list.push_back(e);
+    };
+
+    auto shrink_tabu = [&]() {
+        if (tabu_set.size() > tabu_size) {
+            tabu_set.erase(tabu_list.front());
+            tabu_list.pop_front();
+        }
     };
 
     solution_t new_solution = solution;
@@ -155,6 +160,7 @@ solution_t tabu_function(solution_t solution) {
             solution = new_solution;
             cout << i << " " << solution << "  Result: " << solution.goal() << std::endl;
         }
+        shrink_tabu();
     }
     return solution;
 }
@@ -170,7 +176,7 @@ int main() {
 //    solution = brute_force(solution);
 //    solution = random_hillclimb(solution);
 //    solution = hillclimb(solution);
-    solution = tabu_function(solution);
+    solution = tabu_function(solution, 100);
     cout << solution << " Result  " << solution.goal() << std::endl;
 
 }
