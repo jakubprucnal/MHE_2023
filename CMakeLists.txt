@@ -3,4 +3,4 @@ project(MHE)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(MHE main.cpp)
+add_executable(MHE main.cpp tabuZWykladu.h)

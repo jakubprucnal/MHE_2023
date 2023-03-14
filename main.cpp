@@ -6,6 +6,9 @@
 #include <memory>
 #include <math.h>
 #include <random>
+#include <list>
+#include <set>
+#include <algorithm>
 
 using problem_t = std::vector<int>;
 
@@ -30,6 +33,7 @@ public:
     }
 };
 
+using neighbours_t = std::vector<solution_t>;
 
 std::ostream &operator<<(std::ostream &o, const problem_t v) {
     o << "{ ";
@@ -77,21 +81,26 @@ solution_t brute_force(solution_t start_point) {
     return best_solution;
 }
 
-solution_t best_neighbour(solution_t current_point) {
+neighbours_t current_neighbours(solution_t current_point) {
     using namespace std;
-    vector<solution_t> neighbours;
-    solution_t best_neigh = current_point;
+    neighbours_t neighbours;
     for (int i = 0; i < current_point.size(); i++) {
         solution_t neighbour = current_point;
         neighbour[i] = !neighbour[i];
         neighbours.push_back(neighbour);
-        if (neighbour.goal() <= best_neigh.goal()) {
-            best_neigh = neighbour;
+    }
+    return neighbours;
+}
+
+solution_t best_neighbour(solution_t current_point) {
+    using namespace std;
+    vector<solution_t> neighbours = current_neighbours(current_point);
+    solution_t best_neigh = current_point;
+    for (int i = 0; i < neighbours.size(); i++) {
+        if (neighbours[i].goal() <= best_neigh.goal()) {
+            best_neigh = neighbours[i];
         }
     }
-//    for (int i=0; i<neighbours.size(); i++){
-//        cout << neighbours[i] << " -- " << neighbours[i].goal() << endl;
-//    }
     return best_neigh;
 }
 
@@ -117,6 +126,39 @@ solution_t random_hillclimb(solution_t solution) {
     return solution;
 }
 
+solution_t tabu_function(solution_t solution) {
+    using namespace std;
+    set<solution_t> tabu_set;
+    list<solution_t> tabu_list;
+
+    auto is_in_taboo = [&](auto e) {
+        return tabu_set.count(e); };
+
+    auto add_to_taboo = [&](auto e) {
+        tabu_set.insert(e);
+        tabu_list.push_back(e);
+    };
+
+    solution_t new_solution = solution;
+    for (int i = 0; i < 254; i++) {
+        auto neighbours = current_neighbours(new_solution);
+        neighbours.erase(remove_if(neighbours.begin(),
+                                        neighbours.end(),
+                                        [&](auto e) { return is_in_taboo(e); }),
+                         neighbours.end());
+        if (neighbours.size() == 0) break;
+        new_solution = *max_element(neighbours.begin(), neighbours.end(), [&](auto a, auto b) {
+            return a.goal() > b.goal();
+        });
+        add_to_taboo(new_solution);
+        if (new_solution.goal() <= solution.goal()) {
+            solution = new_solution;
+            cout << i << " " << solution << "  Result: " << solution.goal() << std::endl;
+        }
+    }
+    return solution;
+}
+
 int main() {
     using namespace std;
     problem_t part_problem = {
@@ -127,7 +169,8 @@ int main() {
     for (int i = 0; i < part_problem.size(); i++) solution.push_back(true);
 //    solution = brute_force(solution);
 //    solution = random_hillclimb(solution);
-    solution = hillclimb(solution);
+//    solution = hillclimb(solution);
+    solution = tabu_function(solution);
     cout << solution << " Result  " << solution.goal() << std::endl;
 
 }
