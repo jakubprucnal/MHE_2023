@@ -129,10 +129,11 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
     set<solution_t> tabu_set;
     list<solution_t> tabu_list;
 
-    auto is_in_taboo = [&](auto e) {
-        return tabu_set.count(e); };
+    auto is_in_tabu = [&](auto e) {
+        return tabu_set.count(e);
+    };
 
-    auto add_to_taboo = [&](auto e) {
+    auto add_to_tabu = [&](auto e) {
         tabu_set.insert(e);
         tabu_list.push_back(e);
     };
@@ -148,14 +149,14 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
     for (int i = 0; i < 254; i++) {
         auto neighbours = current_neighbours(new_solution);
         neighbours.erase(remove_if(neighbours.begin(),
-                                        neighbours.end(),
-                                        [&](auto e) { return is_in_taboo(e); }),
+                                   neighbours.end(),
+                                   [&](auto e) { return is_in_tabu(e); }),
                          neighbours.end());
         if (neighbours.size() == 0) break;
         new_solution = *max_element(neighbours.begin(), neighbours.end(), [&](auto a, auto b) {
             return a.goal() > b.goal();
         });
-        add_to_taboo(new_solution);
+        add_to_tabu(new_solution);
         if (new_solution.goal() <= solution.goal()) {
             solution = new_solution;
             cout << i << " " << solution << "  Result: " << solution.goal() << std::endl;
@@ -163,6 +164,39 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
         shrink_tabu();
     }
     return solution;
+}
+
+double temperature(int t){
+    return 1000/t;
+};
+
+solution_t simulated_anneling(solution_t start_point) {
+    auto solution = start_point;
+    for (int i = 0; i < solution.size(); i++) {
+        solution[i] = true;
+    }
+    int iterator = 1;
+    auto best_solution = solution;
+    int i = 0;
+    do {
+        auto neighbour = random_modify(solution);
+        if (neighbour.goal() < solution.goal()) {
+            solution = neighbour;
+            std::cout << (i++) << " " << solution << "  " << solution.goal() << " *** " << best_solution << "  "
+                      << best_solution.goal() << std::endl;
+        } else {
+            std::uniform_real_distribution<double> u(0,1);
+            if (u(rgen) < exp(-abs(solution.goal() - neighbour.goal()) / temperature(iterator))) {
+                solution = neighbour;
+            }
+        }
+        if (solution.goal() <= best_solution.goal()) {
+            best_solution = solution;
+        }
+        iterator++;
+    } while (iterator < 254);
+
+    return best_solution;
 }
 
 int main() {
@@ -176,7 +210,8 @@ int main() {
 //    solution = brute_force(solution);
 //    solution = random_hillclimb(solution);
 //    solution = hillclimb(solution);
-    solution = tabu_function(solution, 100);
+    solution = simulated_anneling(solution);
+//    solution = tabu_function(solution, 100);
     cout << solution << " Result  " << solution.goal() << std::endl;
 
 }
