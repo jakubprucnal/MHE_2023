@@ -59,6 +59,19 @@ solution_t random_modify(solution_t current_point) {
     return current_point;
 }
 
+solution_t random_modify_with_random_points_count(solution_t current_point) {
+    using namespace std;
+    vector<int> v;
+    for (int i=0; i < current_point.size(); i++) v.push_back(i);
+    uniform_int_distribution<int> distr(0, current_point.size() - 1);
+    int quantity = distr(rgen);
+    std::shuffle(v.begin(), v.end(),rgen);
+    for (int i=0; i < quantity; i++){
+        current_point[v[i]] = !current_point[v[i]];
+    }
+    return current_point;
+}
+
 solution_t brute_force(solution_t start_point) {
     auto solution = start_point;
     for (int i = 0; i < solution.size(); i++) {
@@ -179,7 +192,7 @@ solution_t simulated_anneling(solution_t start_point) {
     auto best_solution = solution;
     int i = 0;
     do {
-        auto neighbour = random_modify(solution);
+        auto neighbour = random_modify_with_random_points_count(solution);
         if (neighbour.goal() < solution.goal()) {
             solution = neighbour;
             std::cout << (i++) << " " << solution << "  " << solution.goal() << " *** " << best_solution << "  "
@@ -212,6 +225,7 @@ int main() {
 //    solution = hillclimb(solution);
     solution = simulated_anneling(solution);
 //    solution = tabu_function(solution, 100);
+
     cout << solution << " Result  " << solution.goal() << std::endl;
 
 }
