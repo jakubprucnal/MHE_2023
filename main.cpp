@@ -7,8 +7,41 @@
 #include <random>
 #include <list>
 #include <set>
+#include <map>
+#include <complex>
+#include <fstream>
+#include <sstream>
+#include <any>
 
 using problem_t = std::vector<int>;
+
+auto argu = [](int argc, char** argv, std::string name,
+              auto default_value) -> decltype(default_value) {
+    using namespace std;
+    string paramname = "";
+    any ret = default_value;
+    for (auto argument : vector<string>(argv, argv + argc)) {
+        if ((argument.size() > 0) && (argument[0] == '-')) {
+            if (paramname != "") {
+                if (name == argument.substr(1)) ret = true;
+            }
+            paramname = argument.substr(1);
+        } else if (name == paramname) {
+            if (std::is_same_v<decltype(default_value), int>)
+                ret = stoi(argument);
+            else if (std::is_same_v<decltype(default_value), double>)
+                ret = stod(argument);
+            else if (std::is_same_v<decltype(default_value), char>)
+                ret = argument.at(0);
+            else if (std::is_same_v<decltype(default_value), bool>)
+                ret = (argument == "true") || (argument == "1") || (argument == "yes");
+            else
+                ret = argument;
+            paramname = "";
+        }
+    }
+    return std::any_cast<decltype(default_value)>(ret);
+};
 
 class solution_t : public std::vector<bool> {
 public:
@@ -152,7 +185,7 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
     };
 
     auto shrink_tabu = [&]() {
-        if (tabu_set.size() > tabu_size) {
+        if (tabu_set.size() > tabu_size && tabu_size != 0) {
             tabu_set.erase(tabu_list.front());
             tabu_list.pop_front();
         }
@@ -179,11 +212,7 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
     return solution;
 }
 
-double temperature(int t){
-    return 1000/t;
-};
-
-solution_t simulated_anneling(solution_t start_point) {
+solution_t simulated_anneling(solution_t start_point, std::function<double(int)> temperature) {
     auto solution = start_point;
     for (int i = 0; i < solution.size(); i++) {
         solution[i] = true;
@@ -212,19 +241,71 @@ solution_t simulated_anneling(solution_t start_point) {
     return best_solution;
 }
 
-int main() {
+problem_t load_problem(const std::string fname)
+{
+using namespace std;
+problem_t problem;
+istream *fst = &cin;
+ifstream f;
+if (fname != "") {
+f = ifstream(fname);
+fst = &f;
+}
+string line;
+getline(*fst, line);
+stringstream sline(line);
+int x;
+while (sline >> x){
+    problem.push_back(x);
+}
+return problem;
+}
+
+int main(int argc, char** argv) {
     using namespace std;
-    problem_t part_problem = {
-            1, 3, 5, 7, 9, 5, 1, 1, 1
-    };
-    cout << part_problem << std::endl;
+    auto fname = argu(argc, argv, "fname", string(""));
+    auto show_progress = argu(argc, argv, "show_progress", false);
+    auto iterations = argu(argc, argv, "iterations", 1000);
+    auto tabu_size = argu(argc, argv, "tabu_size", 100); // If tabu_size == 0 then tabu is infinity
+    auto method = argu(argc, argv, "method", string("tabu"));
+
+    auto pop_size = argu(argc, argv, "pop_size", 50);
+    auto crossover_p = argu(argc, argv, "crossover_p", 0.9);
+    auto mutation_p = argu(argc, argv, "mutation_p", 0.1);
+
+    cout << "# fname = " << fname << ";" << endl;
+    map<string, string> params;
+    vector<string> arguments(argv, argv + argc);
+    string paramname = "";
+
+    auto part_problem = load_problem(fname);
     solution_t solution(make_shared<problem_t>(part_problem));
     for (int i = 0; i < part_problem.size(); i++) solution.push_back(true);
-//    solution = brute_force(solution);
-//    solution = random_hillclimb(solution);
-//    solution = hillclimb(solution);
-    solution = simulated_anneling(solution);
-//    solution = tabu_function(solution, 100);
+    cout << part_problem << std::endl;
+
+//    std::chrono::duration<double> calculation_duration;
+    if (method == "full_revision") {
+        solution = brute_force(solution);
+//        best_solution = a;
+//        calculation_duration = b;
+    } else if (method == "hillclimb") {
+        solution = hillclimb(solution);
+//        best_solution = a;
+//        calculation_duration = b;
+    } else if (method == "random_hillclimb") {
+        solution = random_hillclimb(solution);
+//        best_solution = a;
+//        calculation_duration = b;
+    } else if (method == "tabu") {
+        solution = tabu_function(solution, 100);
+//        best_solution = a;
+//        calculation_duration = b;
+    } else if (method == "simulated_annealing") {
+        function<double(int)> temperature = [](int t){
+            return 100/t;
+        };
+        solution = simulated_anneling(solution, temperature);
+    }
 
     cout << solution << " Result  " << solution.goal() << std::endl;
 
