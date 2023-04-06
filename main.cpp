@@ -105,7 +105,7 @@ solution_t random_modify_with_random_points_count(solution_t current_point) {
     return current_point;
 }
 
-solution_t brute_force(solution_t start_point) {
+solution_t brute_force(solution_t start_point, int iterations) {
     auto solution = start_point;
     for (int i = 0; i < solution.size(); i++) {
         solution[i] = true;
@@ -120,7 +120,9 @@ solution_t brute_force(solution_t start_point) {
                 std::cout << (i++) << " " << solution << "  " << solution.goal() << " *** " << best_solution << "  "
                           << best_solution.goal() << std::endl;
             }
+            if (i > iterations) break;
         } while (std::next_permutation(solution.begin(), solution.end()));
+        if (i > iterations) break;
     }
     return best_solution;
 }
@@ -148,8 +150,8 @@ solution_t best_neighbour(solution_t current_point) {
     return best_neigh;
 }
 
-solution_t hillclimb(solution_t solution) {
-    for (int i = 0; i < 254; i++) {
+solution_t hillclimb(solution_t solution, int iterations) {
+    for (int i = 0; i < iterations; i++) {
         auto new_solution = best_neighbour(solution);
         if (new_solution.goal() <= solution.goal()) {
             solution = new_solution;
@@ -159,8 +161,8 @@ solution_t hillclimb(solution_t solution) {
     return solution;
 }
 
-solution_t random_hillclimb(solution_t solution) {
-    for (int i = 0; i < 254; i++) {
+solution_t random_hillclimb(solution_t solution, int iterations) {
+    for (int i = 0; i < iterations; i++) {
         auto new_solution = random_modify(solution);
         if (new_solution.goal() <= solution.goal()) {
             solution = new_solution;
@@ -170,7 +172,50 @@ solution_t random_hillclimb(solution_t solution) {
     return solution;
 }
 
-solution_t tabu_function(solution_t solution, int tabu_size) {
+int selection_tournament(std::vector<double> goals) {
+    std::uniform_int_distribution<int> distr(0,goals.size()-1);
+    int id1 = distr(rgen);
+    int id2 = distr(rgen);
+    if (goals[id1] > goals[id2]) return id1;
+    return id2;
+}
+
+solution_t genetic_algorithm(solution_t solution,
+                             int pop_size,
+                             std::function<std::pair <solution_t, solution_t> (solution_t, solution_t)> crossover,
+                             std::function<solution_t(solution_t)> mutation,
+                             std::function<bool(bool)> term_condition) {
+    using namespace std;
+    vector<solution_t> population;
+    vector<double> pop_goals;
+    for (int i = 0; i < pop_size; i++){
+        population.push_back(random_modify_with_random_points_count(solution));
+        pop_goals.push_back(population.back().goal());
+//        cout << "Populacja" << i << ": " << population.back() << "Fitness: " << pop_goals.back() << endl;
+    }
+
+    while (term_condition(true)){
+        vector<solution_t> parents, offsprings;
+
+        for (int i; i < pop_size; i++){
+            parents.push_back(population[selection_tournament(pop_goals)]);
+        }
+
+        for (int i; i < pop_size; i += 2){
+            auto [a, b] = crossover(parents[i], parents[i+1]);
+            offsprings.push_back(a);
+            offsprings.push_back(b);
+        }
+
+        for (int i; i < pop_size; i++){
+            population[i] = mutation(offsprings[i]);
+            pop_goals[i] = population[i].goal();
+        }
+    }
+    return population[distance(pop_goals.begin(), max_element(pop_goals.begin(), pop_goals.end()))];
+}
+
+solution_t tabu_function(solution_t solution, int iterations, int tabu_size) {
     using namespace std;
     set<solution_t> tabu_set;
     list<solution_t> tabu_list;
@@ -192,7 +237,7 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
     };
 
     solution_t new_solution = solution;
-    for (int i = 0; i < 254; i++) {
+    for (int i = 0; i < iterations; i++) {
         auto neighbours = current_neighbours(new_solution);
         neighbours.erase(remove_if(neighbours.begin(),
                                    neighbours.end(),
@@ -212,11 +257,8 @@ solution_t tabu_function(solution_t solution, int tabu_size) {
     return solution;
 }
 
-solution_t simulated_anneling(solution_t start_point, std::function<double(int)> temperature) {
+solution_t simulated_anneling(solution_t start_point, int iterations, std::function<double(int)> temperature) {
     auto solution = start_point;
-    for (int i = 0; i < solution.size(); i++) {
-        solution[i] = true;
-    }
     int iterator = 1;
     auto best_solution = solution;
     int i = 0;
@@ -236,8 +278,8 @@ solution_t simulated_anneling(solution_t start_point, std::function<double(int)>
             best_solution = solution;
         }
         iterator++;
-    } while (iterator < 254);
-
+    } while (iterator < iterations);
+    std::cout << iterator << std::endl;
     return best_solution;
 }
 
@@ -264,14 +306,13 @@ return problem;
 int main(int argc, char** argv) {
     using namespace std;
     auto fname = argu(argc, argv, "fname", string(""));
-    auto show_progress = argu(argc, argv, "show_progress", false);
-    auto iterations = argu(argc, argv, "iterations", 1000);
+    auto iterations = argu(argc, argv, "iterations", 254);
     auto tabu_size = argu(argc, argv, "tabu_size", 100); // If tabu_size == 0 then tabu is infinity
     auto method = argu(argc, argv, "method", string("tabu"));
 
     auto pop_size = argu(argc, argv, "pop_size", 50);
-    auto crossover_p = argu(argc, argv, "crossover_p", 0.9);
-    auto mutation_p = argu(argc, argv, "mutation_p", 0.1);
+    auto crossover_propability= argu(argc, argv, "crossover_propability", 0.9);
+    auto mutation_propability= argu(argc, argv, "mutation_propability", 0.1);
 
     cout << "# fname = " << fname << ";" << endl;
     map<string, string> params;
@@ -281,32 +322,62 @@ int main(int argc, char** argv) {
     auto part_problem = load_problem(fname);
     solution_t solution(make_shared<problem_t>(part_problem));
     for (int i = 0; i < part_problem.size(); i++) solution.push_back(true);
-    cout << part_problem << std::endl;
+    cout << part_problem.size() << ": " << part_problem << std::endl;
 
 //    std::chrono::duration<double> calculation_duration;
     if (method == "full_revision") {
-        solution = brute_force(solution);
+        solution = brute_force(solution, iterations);
 //        best_solution = a;
 //        calculation_duration = b;
     } else if (method == "hillclimb") {
-        solution = hillclimb(solution);
+        solution = hillclimb(solution, iterations);
 //        best_solution = a;
 //        calculation_duration = b;
     } else if (method == "random_hillclimb") {
-        solution = random_hillclimb(solution);
+        solution = random_hillclimb(solution, iterations);
 //        best_solution = a;
 //        calculation_duration = b;
     } else if (method == "tabu") {
-        solution = tabu_function(solution, 100);
+        solution = tabu_function(solution, iterations, tabu_size);
 //        best_solution = a;
 //        calculation_duration = b;
     } else if (method == "simulated_annealing") {
         function<double(int)> temperature = [](int t){
             return 100/t;
         };
-        solution = simulated_anneling(solution, temperature);
-    }
+        solution = simulated_anneling(solution, iterations, temperature);
+    } else if (method == "genetic_algorithm") {
 
+        auto crossover = [=](solution_t parent_1, solution_t parent_2) -> pair<solution_t, solution_t> {
+            uniform_real_distribution<double> prop_distr(0.0, 1.0);
+            if (prop_distr(rgen) < crossover_propability) {
+                uniform_int_distribution<int> cross_distr(0, parent_1.size() - 1);
+                int cross_size = cross_distr(rgen);
+                for (int i = 0; i < cross_size; i++)
+                    swap(parent_1[i], parent_2[i]);
+            }
+            return {parent_1, parent_2};
+        };
+
+        auto mutation = [=](solution_t offspring) {
+            uniform_real_distribution<double> prop_distr(0.0, 1.0);
+            for (int i = 0; i < offspring.size(); i++)
+                if (prop_distr(rgen) < crossover_propability) {
+                    offspring[i] = !offspring[i];
+                }
+            return offspring;
+        };
+
+        function<bool(bool)> term_condition = [](bool t) {
+            return t;
+        };
+
+        solution = genetic_algorithm(solution,
+                                     pop_size,
+                                     crossover,
+                                     mutation,
+                                     term_condition);
+    }
     cout << solution << " Result  " << solution.goal() << std::endl;
 
 }
