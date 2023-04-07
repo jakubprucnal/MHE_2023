@@ -8,7 +8,6 @@
 #include <list>
 #include <set>
 #include <map>
-#include <complex>
 #include <fstream>
 #include <sstream>
 #include <any>
@@ -320,6 +319,7 @@ int main(int argc, char** argv) {
     auto pop_size = argu(argc, argv, "pop_size", 50);
     auto crossover_probability= argu(argc, argv, "crossover_probability", 0.9);
     auto mutation_probability= argu(argc, argv, "mutation_probability", 0.1);
+    auto fit_iterations = argu(argc, argv, "fit_iterations", 10000);
 
     cout << "# fname = " << fname << ";" << endl;
     map<string, string> params;
@@ -366,7 +366,27 @@ int main(int argc, char** argv) {
             return {parent_1, parent_2};
         };
 
+        auto crossover_2 = [&](solution_t parent_1, solution_t parent_2) -> pair<solution_t, solution_t> {
+            uniform_real_distribution<double> prob_distr(0.0, 1.0);
+            if (prob_distr(rgen) < crossover_probability) {
+                uniform_int_distribution<int> cross_distr(0, parent_1.size() - 1);
+                int cross_size = cross_distr(rgen);
+                for (int i = 0; i < cross_size; i++)
+                    swap(parent_1[i], parent_2[i]);
+            }
+            return {parent_1, parent_2};
+        };
+
         auto mutation_1 = [&](solution_t offspring) {
+            uniform_real_distribution<double> prob_distr(0.0, 1.0);
+            for (int i = 0; i < offspring.size(); i++)
+                if (prob_distr(rgen) < crossover_probability) {
+                    offspring[i] = !offspring[i];
+                }
+            return offspring;
+        };
+
+        auto mutation_2 = [&](solution_t offspring) {
             uniform_real_distribution<double> prob_distr(0.0, 1.0);
             for (int i = 0; i < offspring.size(); i++)
                 if (prob_distr(rgen) < crossover_probability) {
@@ -381,6 +401,13 @@ int main(int argc, char** argv) {
         vector<double> fitnesses) {
             iter_term_condition++;
             return iter_term_condition < iterations;
+        };
+
+        function<bool(vector<solution_t>, vector<double>)>
+                term_condition_2 = [&](vector<solution_t> population,
+                                       vector<double> fitnesses) {
+            iter_term_condition += fitnesses.size();
+            return iter_term_condition < fit_iterations;
         };
 
         solution = genetic_algorithm(solution,
