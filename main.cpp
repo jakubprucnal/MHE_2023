@@ -368,28 +368,24 @@ int main(int argc, char** argv) {
 
         auto crossover_2 = [&](solution_t parent_1, solution_t parent_2) -> pair<solution_t, solution_t> {
             uniform_real_distribution<double> prob_distr(0.0, 1.0);
-            if (prob_distr(rgen) < crossover_probability) {
-                uniform_int_distribution<int> cross_distr(0, parent_1.size() - 1);
-                int cross_size = cross_distr(rgen);
-                for (int i = 0; i < cross_size; i++)
-                    swap(parent_1[i], parent_2[i]);
+            for (int i = 0; i < parent_1.size(); i++) {
+                double gen_prob = prob_distr(rgen);
+                if (prob_distr(rgen) < crossover_probability) swap(parent_1[i], parent_2[i]);
             }
             return {parent_1, parent_2};
         };
 
         auto mutation_1 = [&](solution_t offspring) {
-            uniform_real_distribution<double> prob_distr(0.0, 1.0);
-            for (int i = 0; i < offspring.size(); i++)
-                if (prob_distr(rgen) < crossover_probability) {
-                    offspring[i] = !offspring[i];
-                }
+            uniform_int_distribution<int> mut_distr(0, offspring.size() - 1);
+            int id = mut_distr(rgen);
+            offspring[id] = !offspring[id];
             return offspring;
         };
 
         auto mutation_2 = [&](solution_t offspring) {
             uniform_real_distribution<double> prob_distr(0.0, 1.0);
             for (int i = 0; i < offspring.size(); i++)
-                if (prob_distr(rgen) < crossover_probability) {
+                if (prob_distr(rgen) < mutation_probability) {
                     offspring[i] = !offspring[i];
                 }
             return offspring;
