@@ -62,6 +62,11 @@ public:
         }
         return fabs(sums_difference);
     }
+
+    double fitness() {
+        double p_goal = double(goal());
+        return (1/(p_goal + 1));
+    }
 };
 
 using neighbours_t = std::vector<solution_t>;
@@ -184,35 +189,37 @@ solution_t genetic_algorithm(solution_t solution,
                              int pop_size,
                              std::function<std::pair <solution_t, solution_t> (solution_t, solution_t)> crossover,
                              std::function<solution_t(solution_t)> mutation,
-                             std::function<bool(bool)> term_condition) {
+                             std::function<bool(std::vector<solution_t>, std::vector<double>)> term_condition) {
     using namespace std;
     vector<solution_t> population;
-    vector<double> pop_goals;
+    vector<double> fitnesses;
     for (int i = 0; i < pop_size; i++){
         population.push_back(random_modify_with_random_points_count(solution));
-        pop_goals.push_back(population.back().goal());
-//        cout << "Populacja" << i << ": " << population.back() << "Fitness: " << pop_goals.back() << endl;
+        fitnesses.push_back(population.back().fitness());
+        cout << "Populacja" << i << ": " << population.back() << "Fitness: " << fitnesses.back() << endl;
     }
-
-    while (term_condition(true)){
+    int iter_pops = 0;
+    while (term_condition(population, fitnesses)){
         vector<solution_t> parents, offsprings;
-
-        for (int i; i < pop_size; i++){
-            parents.push_back(population[selection_tournament(pop_goals)]);
+        iter_pops++;
+        for (int i=0; i < pop_size; i++){
+            parents.push_back(population[selection_tournament(fitnesses)]);
         }
 
-        for (int i; i < pop_size; i += 2){
+        for (int i=0; i < pop_size; i += 2){
             auto [a, b] = crossover(parents[i], parents[i+1]);
             offsprings.push_back(a);
             offsprings.push_back(b);
         }
 
-        for (int i; i < pop_size; i++){
+        for (int i=0; i < pop_size; i++){
             population[i] = mutation(offsprings[i]);
-            pop_goals[i] = population[i].goal();
+            fitnesses[i] = population[i].fitness();
         }
+        int max_id = max_element(fitnesses.begin(), fitnesses.end()) - fitnesses.begin();
+        cout << iter_pops << ": " << population[max_id] << "  Result: " << fitnesses[max_id] << endl;
     }
-    return population[distance(pop_goals.begin(), max_element(pop_goals.begin(), pop_goals.end()))];
+    return population[max_element(fitnesses.begin(), fitnesses.end()) - fitnesses.begin()];
 }
 
 solution_t tabu_function(solution_t solution, int iterations, int tabu_size) {
@@ -311,8 +318,8 @@ int main(int argc, char** argv) {
     auto method = argu(argc, argv, "method", string("tabu"));
 
     auto pop_size = argu(argc, argv, "pop_size", 50);
-    auto crossover_propability= argu(argc, argv, "crossover_propability", 0.9);
-    auto mutation_propability= argu(argc, argv, "mutation_propability", 0.1);
+    auto crossover_probability= argu(argc, argv, "crossover_probability", 0.9);
+    auto mutation_probability= argu(argc, argv, "mutation_probability", 0.1);
 
     cout << "# fname = " << fname << ";" << endl;
     map<string, string> params;
@@ -348,9 +355,9 @@ int main(int argc, char** argv) {
         solution = simulated_anneling(solution, iterations, temperature);
     } else if (method == "genetic_algorithm") {
 
-        auto crossover = [=](solution_t parent_1, solution_t parent_2) -> pair<solution_t, solution_t> {
-            uniform_real_distribution<double> prop_distr(0.0, 1.0);
-            if (prop_distr(rgen) < crossover_propability) {
+        auto crossover_1 = [&](solution_t parent_1, solution_t parent_2) -> pair<solution_t, solution_t> {
+            uniform_real_distribution<double> prob_distr(0.0, 1.0);
+            if (prob_distr(rgen) < crossover_probability) {
                 uniform_int_distribution<int> cross_distr(0, parent_1.size() - 1);
                 int cross_size = cross_distr(rgen);
                 for (int i = 0; i < cross_size; i++)
@@ -359,24 +366,28 @@ int main(int argc, char** argv) {
             return {parent_1, parent_2};
         };
 
-        auto mutation = [=](solution_t offspring) {
-            uniform_real_distribution<double> prop_distr(0.0, 1.0);
+        auto mutation_1 = [&](solution_t offspring) {
+            uniform_real_distribution<double> prob_distr(0.0, 1.0);
             for (int i = 0; i < offspring.size(); i++)
-                if (prop_distr(rgen) < crossover_propability) {
+                if (prob_distr(rgen) < crossover_probability) {
                     offspring[i] = !offspring[i];
                 }
             return offspring;
         };
 
-        function<bool(bool)> term_condition = [](bool t) {
-            return t;
+        int iter_term_condition = 0;
+        function<bool(vector<solution_t>, vector<double>)>
+        term_condition_1 = [&](vector<solution_t> population,
+        vector<double> fitnesses) {
+            iter_term_condition++;
+            return iter_term_condition < iterations;
         };
 
         solution = genetic_algorithm(solution,
                                      pop_size,
-                                     crossover,
-                                     mutation,
-                                     term_condition);
+                                     crossover_1,
+                                     mutation_1,
+                                     term_condition_1);
     }
     cout << solution << " Result  " << solution.goal() << std::endl;
 
